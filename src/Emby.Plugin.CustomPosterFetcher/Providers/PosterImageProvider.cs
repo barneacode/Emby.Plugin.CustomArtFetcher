@@ -55,11 +55,13 @@ namespace Emby.Plugin.CustomPosterFetcher.Providers
 
         private readonly IHttpClient httpClient;
         private readonly ILogger logger;
+        private readonly ImageUrlProbe probe;
 
         public PosterImageProvider(IHttpClient httpClient, ILogManager logManager)
         {
             this.httpClient = httpClient;
             this.logger = logManager.GetLogger(ProviderName);
+            this.probe = new ImageUrlProbe(httpClient);
         }
 
         public string Name => ProviderName;
@@ -238,6 +240,11 @@ namespace Emby.Plugin.CustomPosterFetcher.Providers
             return plugin?.GetPluginOptions();
         }
 
+        /// <summary>
+        /// Whether the URL is worth offering. The HTTP work itself lives in <see cref="ImageUrlProbe"/>;
+        /// what stays here is the policy the fetcher needs and the settings page must not have — the
+        /// short memory of recent misses, and a log line for each decision.
+        /// </summary>
         private async Task<bool> ImageExists(string url, PluginOptions options, string rank, CancellationToken cancellationToken)
         {
             DateTime failedAt;
@@ -258,72 +265,44 @@ namespace Emby.Plugin.CustomPosterFetcher.Providers
                 this.recentFailures.TryRemove(url, out failedAt);
             }
 
-            var requestOptions = new HttpRequestOptions
+            this.Log(options, rank, "HEAD {0} (timeout {1} s)", url, Math.Max(1, options.TimeoutSeconds));
+
+            var result = await this.probe.Probe(url, options.TimeoutSeconds, cancellationToken).ConfigureAwait(false);
+
+            switch (result.Outcome)
             {
-                Url = url,
-                CancellationToken = cancellationToken,
-                TimeoutMs = Math.Max(1, options.TimeoutSeconds) * 1000,
-                BufferContent = false,
+                case ImageProbeOutcome.Image:
+                    this.Log(options, rank, "HEAD {0} \u2192 {1}", url, result.Describe());
+                    return true;
 
-                // A missing poster is an ordinary outcome here, not something to log as an error.
-                LogErrors = false,
-            };
-
-            var timer = Stopwatch.StartNew();
-
-            this.Log(options, rank, "HEAD {0} (timeout {1} s)", url, requestOptions.TimeoutMs / 1000);
-
-            try
-            {
-                var response = await this.httpClient.SendAsync(requestOptions, "HEAD").ConfigureAwait(false);
-
-                // A HEAD response carries no body, but release the stream if one came back anyway.
-                response.Content?.Dispose();
-
-                var contentType = response.ContentType ?? string.Empty;
-
-                this.Log(
-                    options,
-                    rank,
-                    "HEAD {0} → {1} {2} ({3} ms)",
-                    url,
-                    (int)response.StatusCode,
-                    contentType.Length > 0 ? contentType : "no content type",
-                    timer.ElapsedMilliseconds);
-
-                // Servers that answer HEAD without a content type still count as a hit; only an
-                // explicitly non-image type rules the URL out.
-                if (contentType.Length > 0 && !contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
-                {
-                    this.Log(options, rank, "Not offering {0}: response was {1}, not an image.", url, contentType);
+                case ImageProbeOutcome.NotAnImage:
+                    this.Log(options, rank, "HEAD {0} \u2192 {1}", url, result.Describe());
+                    this.Log(options, rank, "Not offering {0}: response was {1}, not an image.", url, result.ContentType);
                     this.RememberFailure(url);
                     return false;
-                }
 
-                return true;
-            }
-            catch (HttpException ex) when (IsMethodNotSupported(ex))
-            {
-                // Some servers reject HEAD outright. Give them the benefit of the doubt — Emby will
-                // simply get nothing when it goes on to GET the image.
-                this.Log(
-                    options,
-                    rank,
-                    "HEAD {0} → {1} after {2} ms; the server does not support HEAD, offering the poster unchecked.",
-                    url,
-                    (int)ex.StatusCode,
-                    timer.ElapsedMilliseconds);
-                return true;
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                this.Log(options, rank, "Not offering {0}: request failed after {1} ms: {2}", url, timer.ElapsedMilliseconds, ex.Message);
-                this.RememberFailure(url);
-                return false;
+                case ImageProbeOutcome.HeadNotSupported:
+                    // Give the server the benefit of the doubt — Emby will simply get nothing when
+                    // it goes on to GET the image.
+                    this.Log(
+                        options,
+                        rank,
+                        "HEAD {0} \u2192 {1} after {2} ms; the server does not support HEAD, offering the image unchecked.",
+                        url,
+                        result.StatusCode,
+                        result.ElapsedMs);
+                    return true;
+
+                default:
+                    this.Log(
+                        options,
+                        rank,
+                        "Not offering {0}: request failed after {1} ms: {2}",
+                        url,
+                        result.ElapsedMs,
+                        result.Error);
+                    this.RememberFailure(url);
+                    return false;
             }
         }
 

@@ -1,17 +1,30 @@
 namespace Emby.Plugin.CustomPosterFetcher
 {
     using System;
+    using System.Collections.Generic;
     using System.IO;
 
     using Emby.Plugin.CustomPosterFetcher.Model;
+    using Emby.Plugin.CustomPosterFetcher.UI;
+
+    using MediaBrowser.Common.Net;
 
     using MediaBrowser.Common.Plugins;
     using MediaBrowser.Controller;
+    using MediaBrowser.Controller.Library;
     using MediaBrowser.Controller.Plugins;
     using MediaBrowser.Model.Drawing;
     using MediaBrowser.Model.Plugins;
+    using MediaBrowser.Model.Plugins.UI;
 
-    public class CustomPosterFetcherPlugin : BasePluginSimpleUI<PluginOptions>, IHasThumbImage
+    /// <summary>
+    /// Re-declaring IHasUIPages is deliberate. BasePluginSimpleUI implements it explicitly, and an
+    /// explicit implementation on a derived class takes over the interface mapping — so Emby asks
+    /// this class for its pages and gets the one below, while the base class's options store stays
+    /// available through the protected GetOptions/SaveOptions it also provides. The base's own page
+    /// is left unused: its view answers every button press with null.
+    /// </summary>
+    public class CustomPosterFetcherPlugin : BasePluginSimpleUI<PluginOptions>, IHasUIPages, IHasThumbImage
     {
         public const string PluginName = "Custom Poster Fetcher";
 
@@ -22,10 +35,33 @@ namespace Emby.Plugin.CustomPosterFetcher
         /// <summary>Never change this — Emby identifies the plugin (and its stored config) by it.</summary>
         public static readonly Guid PluginId = new Guid("6E1B4F2C-9B0A-4F6D-9E2B-2C1A7F3D8A54");
 
+        private readonly IServerApplicationHost appHost;
+        private readonly SettingsPageController controller;
+        private readonly object urlTesterLock = new object();
+
+        private UrlTester urlTester;
+
         public CustomPosterFetcherPlugin(IServerApplicationHost appHost)
             : base(appHost)
         {
             Instance = this;
+            this.appHost = appHost;
+
+            var pageInfo = new PluginPageInfo
+            {
+                Name = "Settings",
+                DisplayName = PluginName,
+                EnableInMainMenu = true,
+                MenuIcon = "image",
+                IsMainConfigPage = true,
+            };
+
+            this.controller = new SettingsPageController(this, pageInfo);
+        }
+
+        IReadOnlyCollection<IPluginUIPageController> IHasUIPages.UIPageControllers
+        {
+            get { return new IPluginUIPageController[] { this.controller }; }
         }
 
         /// <summary>
@@ -47,32 +83,42 @@ namespace Emby.Plugin.CustomPosterFetcher
             return this.GetOptions();
         }
 
+        /// <summary>Reads the stored settings for the page. Wraps the base class's protected store.</summary>
+        internal PluginOptions LoadOptions()
+        {
+            return this.GetOptions();
+        }
+
+        /// <summary>Writes the settings back from the page. Wraps the base class's protected store.</summary>
+        internal void StoreOptions(PluginOptions options)
+        {
+            this.SaveOptions(options);
+        }
+
+        /// <summary>
+        /// The Test buttons' helper, built on first use rather than in the constructor, which runs
+        /// while the server is still assembling its services. Kept afterwards because it remembers
+        /// which items recent tests used, which is what makes each click pick a different one.
+        /// </summary>
+        internal UrlTester GetUrlTester()
+        {
+            lock (this.urlTesterLock)
+            {
+                if (this.urlTester == null)
+                {
+                    this.urlTester = new UrlTester(
+                        this.appHost.Resolve<ILibraryManager>(),
+                        this.appHost.Resolve<IHttpClient>());
+                }
+
+                return this.urlTester;
+            }
+        }
+
         public Stream GetThumbImage()
         {
             var type = this.GetType();
             return type.Assembly.GetManifestResourceStream(type.Namespace + ".thumb.png");
-        }
-
-        /// <summary>
-        /// Refreshes the placeholder help text from the catalog every time the page is opened, so an
-        /// upgrade that adds a placeholder shows it without the user having to reset their settings.
-        /// </summary>
-        protected override PluginOptions OnBeforeShowUI(PluginOptions options)
-        {
-            options.AvailablePlaceholders.Text = PlaceholderCatalog.BuildHelpText();
-
-            return base.OnBeforeShowUI(options);
-        }
-
-        /// <summary>
-        /// Runs <see cref="PluginOptions.Validate"/> and surfaces any problem as an error on the
-        /// settings page instead of saving a URL that cannot work.
-        /// </summary>
-        protected override bool OnOptionsSaving(PluginOptions options)
-        {
-            options.ValidateOrThrow();
-
-            return base.OnOptionsSaving(options);
         }
 
         /// <summary>

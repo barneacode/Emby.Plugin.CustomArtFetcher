@@ -43,6 +43,12 @@ namespace Emby.Plugin.CustomPosterFetcher.Model
         [EnabledCondition(nameof(EnablePoster), SimpleCondition.IsTrue)]
         public string UrlTemplate { get; set; }
 
+        public ButtonItem TestPosterButton { get; set; } =
+            new ButtonItem("Test poster URL") { Icon = IconNames.image_search, Data1 = "TestPrimary" };
+
+        public StatusItem PosterStatus { get; set; } =
+            new StatusItem("Poster URL", "Not tested yet.", ItemStatus.Unknown);
+
         [DisplayName("Fetch backdrops")]
         [Description("The wide background art shown behind an item. Emby ignores backdrops narrower "
                      + "than 1280 px.")]
@@ -53,6 +59,12 @@ namespace Emby.Plugin.CustomPosterFetcher.Model
         [EnabledCondition(nameof(EnableBackdrop), SimpleCondition.IsTrue)]
         public string BackdropUrlTemplate { get; set; }
 
+        public ButtonItem TestBackdropButton { get; set; } =
+            new ButtonItem("Test backdrop URL") { Icon = IconNames.image_search, Data1 = "TestBackdrop" };
+
+        public StatusItem BackdropStatus { get; set; } =
+            new StatusItem("Backdrop URL", "Not tested yet.", ItemStatus.Unknown);
+
         [DisplayName("Fetch thumbs")]
         [Description("The wide thumbnail used in some list and resume views.")]
         public bool EnableThumb { get; set; } = false;
@@ -62,6 +74,12 @@ namespace Emby.Plugin.CustomPosterFetcher.Model
         [EnabledCondition(nameof(EnableThumb), SimpleCondition.IsTrue)]
         public string ThumbUrlTemplate { get; set; }
 
+        public ButtonItem TestThumbButton { get; set; } =
+            new ButtonItem("Test thumb URL") { Icon = IconNames.image_search, Data1 = "TestThumb" };
+
+        public StatusItem ThumbStatus { get; set; } =
+            new StatusItem("Thumb URL", "Not tested yet.", ItemStatus.Unknown);
+
         [DisplayName("Fetch logos")]
         [Description("The title treatment overlaid on the backdrop, usually a transparent PNG.")]
         public bool EnableLogo { get; set; } = false;
@@ -70,6 +88,12 @@ namespace Emby.Plugin.CustomPosterFetcher.Model
         [EditMultiline(2)]
         [EnabledCondition(nameof(EnableLogo), SimpleCondition.IsTrue)]
         public string LogoUrlTemplate { get; set; }
+
+        public ButtonItem TestLogoButton { get; set; } =
+            new ButtonItem("Test logo URL") { Icon = IconNames.image_search, Data1 = "TestLogo" };
+
+        public StatusItem LogoStatus { get; set; } =
+            new StatusItem("Logo URL", "Not tested yet.", ItemStatus.Unknown);
 
         public SpacerItem Spacer1 { get; set; } = new SpacerItem();
 
@@ -112,6 +136,24 @@ namespace Emby.Plugin.CustomPosterFetcher.Model
                      + "logging shows them too.")]
         public bool LogRequests { get; set; } = false;
 
+        /// <summary>
+        /// Puts the four Test results back to their unrun state, and is called every time the page
+        /// is opened.
+        /// </summary>
+        /// <remarks>
+        /// The status items are stored alongside the real settings, so without this the page would
+        /// present a result from an earlier session as though it were current. It also repairs
+        /// settings written before these items carried a caption, which the web UI renders as
+        /// "undefined".
+        /// </remarks>
+        public void ResetTestStatuses()
+        {
+            ResetStatus(this.PosterStatus, "Poster URL");
+            ResetStatus(this.BackdropStatus, "Backdrop URL");
+            ResetStatus(this.ThumbStatus, "Thumb URL");
+            ResetStatus(this.LogoStatus, "Logo URL");
+        }
+
         protected override void Validate(ValidationContext context)
         {
             base.Validate(context);
@@ -129,6 +171,13 @@ namespace Emby.Plugin.CustomPosterFetcher.Model
             this.BackdropUrlTemplate = ValidateTemplate(context, nameof(this.BackdropUrlTemplate), this.BackdropUrlTemplate, this.EnableBackdrop, "backdrop");
             this.ThumbUrlTemplate = ValidateTemplate(context, nameof(this.ThumbUrlTemplate), this.ThumbUrlTemplate, this.EnableThumb, "thumb");
             this.LogoUrlTemplate = ValidateTemplate(context, nameof(this.LogoUrlTemplate), this.LogoUrlTemplate, this.EnableLogo, "logo");
+        }
+
+        private static void ResetStatus(StatusItem status, string caption)
+        {
+            status.Caption = caption;
+            status.StatusText = "Not tested yet.";
+            status.Status = ItemStatus.Unknown;
         }
 
         /// <summary>
@@ -169,14 +218,8 @@ namespace Emby.Plugin.CustomPosterFetcher.Model
                 return template;
             }
 
-            if (!PlaceholderCatalog.ContainsPlaceholder(template))
-            {
-                context.AddValidationError(
-                    propertyName,
-                    "The " + label + " URL contains no placeholders, so every movie and series would get the same image. "
-                    + "Add at least one placeholder, for example {tmdb_id}.");
-            }
-
+            // A URL with no placeholders is allowed: serving one fixed image to everything is a
+            // legitimate thing to want, so it is not this plugin's business to refuse it.
             return template;
         }
     }
