@@ -85,9 +85,19 @@ namespace Emby.Plugin.CustomPosterFetcher.Providers
             return false;
         }
 
+        /// <summary>
+        /// Emby uses this both to decide what to ask for during a refresh and to build the
+        /// "Change image" dialog, so it has to follow the tick boxes rather than report a fixed set.
+        /// </summary>
         public IEnumerable<ImageType> GetSupportedImages(BaseItem item)
         {
-            return SupportedImages;
+            var options = GetOptions();
+            if (options == null)
+            {
+                return SupportedImages;
+            }
+
+            return GetConfiguredImages(options).Select(image => image.Type).ToArray();
         }
 
         public async Task<IEnumerable<RemoteImageInfo>> GetImages(
@@ -98,46 +108,65 @@ namespace Emby.Plugin.CustomPosterFetcher.Providers
             var none = Enumerable.Empty<RemoteImageInfo>();
 
             var options = GetOptions();
-            if (options == null || string.IsNullOrWhiteSpace(options.UrlTemplate))
+            if (options == null)
             {
                 return none;
             }
 
-            this.LogFetcherRanking(item, libraryOptions);
+            var configured = GetConfiguredImages(options);
+            if (configured.Count == 0)
+            {
+                return none;
+            }
+
+            this.LogFetcherRanking(item, libraryOptions, configured);
 
             var rank = DescribeRank(item, libraryOptions);
+            var typeOptions = libraryOptions?.GetTypeOptions(item.GetType().Name);
 
-            string url;
-            string unresolvedToken;
-            if (!PlaceholderCatalog.TryResolve(options.UrlTemplate, item, out url, out unresolvedToken))
+            var offered = new List<RemoteImageInfo>(configured.Count);
+
+            foreach (var image in configured)
             {
-                this.Log(
-                    options,
-                    rank,
-                    "Skipping \"{0}\": no value for placeholder {{{1}}}.",
-                    item.Name,
-                    unresolvedToken);
-                return none;
-            }
+                // Emby discards a candidate of a type the library has switched off, so there is no
+                // point resolving the URL, let alone spending a request checking it.
+                if (typeOptions != null && !typeOptions.IsEnabled(image.Type))
+                {
+                    continue;
+                }
 
-            this.Log(options, rank, "Resolved poster URL for \"{0}\": {1}", item.Name, url);
+                string url;
+                string unresolvedToken;
+                if (!PlaceholderCatalog.TryResolve(image.Template, item, out url, out unresolvedToken))
+                {
+                    this.Log(
+                        options,
+                        rank,
+                        "Skipping the {0} for \"{1}\": no value for placeholder {{{2}}}.",
+                        image.Type,
+                        item.Name,
+                        unresolvedToken);
+                    continue;
+                }
 
-            if (options.VerifyBeforeOffering && !await this.ImageExists(url, options, rank, cancellationToken).ConfigureAwait(false))
-            {
-                return none;
-            }
+                this.Log(options, rank, "Resolved {0} URL for \"{1}\": {2}", image.Type, item.Name, url);
 
-            this.Log(options, rank, "Offering poster for \"{0}\": {1}", item.Name, url);
+                if (options.VerifyBeforeOffering && !await this.ImageExists(url, options, rank, cancellationToken).ConfigureAwait(false))
+                {
+                    continue;
+                }
 
-            return new[]
-            {
-                new RemoteImageInfo
+                this.Log(options, rank, "Offering the {0} for \"{1}\": {2}", image.Type, item.Name, url);
+
+                offered.Add(new RemoteImageInfo
                 {
                     ProviderName = ProviderName,
                     Url = url,
-                    Type = ImageType.Primary,
-                },
-            };
+                    Type = image.Type,
+                });
+            }
+
+            return offered;
         }
 
         /// <summary>
@@ -175,6 +204,31 @@ namespace Emby.Plugin.CustomPosterFetcher.Providers
             {
                 this.Log(options, null, "GET {0} failed after {1} ms: {2}", url, timer.ElapsedMilliseconds, ex.Message);
                 throw;
+            }
+        }
+
+        /// <summary>
+        /// The image types to offer right now: each type whose tick box is on and whose URL is
+        /// filled in, poster first. A type with an empty URL is treated as switched off, so a
+        /// half-finished setting never produces requests.
+        /// </summary>
+        private static List<ConfiguredImage> GetConfiguredImages(PluginOptions options)
+        {
+            var configured = new List<ConfiguredImage>(4);
+
+            AddConfiguredImage(configured, ImageType.Primary, options.EnablePoster, options.UrlTemplate);
+            AddConfiguredImage(configured, ImageType.Backdrop, options.EnableBackdrop, options.BackdropUrlTemplate);
+            AddConfiguredImage(configured, ImageType.Thumb, options.EnableThumb, options.ThumbUrlTemplate);
+            AddConfiguredImage(configured, ImageType.Logo, options.EnableLogo, options.LogoUrlTemplate);
+
+            return configured;
+        }
+
+        private static void AddConfiguredImage(List<ConfiguredImage> configured, ImageType type, bool enabled, string template)
+        {
+            if (enabled && !string.IsNullOrWhiteSpace(template))
+            {
+                configured.Add(new ConfiguredImage(type, template));
             }
         }
 
@@ -329,7 +383,7 @@ namespace Emby.Plugin.CustomPosterFetcher.Providers
         /// which is invisible from this plugin's own log lines. Logged once per distinct
         /// configuration, at Info, because it is the first thing to check when nothing changes.
         /// </summary>
-        private void LogFetcherRanking(BaseItem item, LibraryOptions libraryOptions)
+        private void LogFetcherRanking(BaseItem item, LibraryOptions libraryOptions, List<ConfiguredImage> configured)
         {
             var typeName = item.GetType().Name;
             var typeOptions = libraryOptions?.GetTypeOptions(typeName);
@@ -338,7 +392,8 @@ namespace Emby.Plugin.CustomPosterFetcher.Providers
             var enabled = typeOptions?.ImageFetchers ?? new string[0];
 
             // Only report a given library configuration once per server run.
-            var signature = typeName + "|" + string.Join(">", order) + "|" + string.Join(",", enabled);
+            var signature = typeName + "|" + string.Join(">", order) + "|" + string.Join(",", enabled)
+                            + "|" + string.Join(",", configured.Select(image => image.Type.ToString()));
             if (!this.loggedFetcherConfigurations.TryAdd(signature, 0))
             {
                 return;
@@ -387,12 +442,26 @@ namespace Emby.Plugin.CustomPosterFetcher.Providers
                     ProviderName);
             }
 
-            if (typeOptions != null && !typeOptions.IsEnabled(ImageType.Primary))
+            if (typeOptions == null)
+            {
+                return;
+            }
+
+            // A type switched on here but off for the library produces nothing, and the settings page
+            // cannot see the library's configuration to warn about it — so say so once, here.
+            var disabled = configured
+                .Where(image => !typeOptions.IsEnabled(image.Type))
+                .Select(image => image.Type.ToString())
+                .ToArray();
+
+            if (disabled.Length > 0)
             {
                 this.logger.Info(
-                    "Primary (poster) images are turned off for {0} in this library, so no poster will be saved "
-                    + "no matter which fetcher offers one.",
-                    typeName);
+                    "These image types are switched on in the plugin but turned off for {0} in this library, so "
+                    + "nothing will be saved for them no matter which fetcher offers one: {1}. Turn them on under "
+                    + "Library \u2192 Advanced \u2192 Images.",
+                    typeName,
+                    string.Join(", ", disabled));
             }
         }
 
@@ -434,6 +503,20 @@ namespace Emby.Plugin.CustomPosterFetcher.Providers
             }
 
             this.recentFailures[url] = DateTime.UtcNow;
+        }
+
+        /// <summary>One image type the user has switched on, paired with the URL to build for it.</summary>
+        private sealed class ConfiguredImage
+        {
+            public ConfiguredImage(ImageType type, string template)
+            {
+                this.Type = type;
+                this.Template = template;
+            }
+
+            public ImageType Type { get; }
+
+            public string Template { get; }
         }
     }
 }
