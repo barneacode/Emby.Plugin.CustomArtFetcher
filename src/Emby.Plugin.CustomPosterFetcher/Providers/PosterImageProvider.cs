@@ -1,0 +1,439 @@
+namespace Emby.Plugin.CustomPosterFetcher.Providers
+{
+    using System;
+    using System.Collections.Concurrent;
+    using System.Collections.Generic;
+    using System.Diagnostics;
+    using System.Globalization;
+    using System.Linq;
+    using System.Net;
+    using System.Threading;
+    using System.Threading.Tasks;
+
+    using Emby.Plugin.CustomPosterFetcher.Model;
+
+    using MediaBrowser.Common.Net;
+    using MediaBrowser.Controller.Entities;
+    using MediaBrowser.Controller.Entities.Movies;
+    using MediaBrowser.Controller.Entities.TV;
+    using MediaBrowser.Controller.Providers;
+    using MediaBrowser.Model.Configuration;
+    using MediaBrowser.Model.Entities;
+    using MediaBrowser.Model.Logging;
+    using MediaBrowser.Model.Net;
+    using MediaBrowser.Model.Providers;
+
+    /// <summary>
+    /// Offers Emby a poster built from the user's URL template. Emby discovers this by interface —
+    /// there is no registration step. Its position relative to the other fetchers is set per library
+    /// under Library → Advanced → Image Fetchers.
+    /// </summary>
+    public class PosterImageProvider : IRemoteImageProvider
+    {
+        /// <summary>
+        /// Shown in the image fetcher list and stored in each library's configuration, so it must
+        /// stay stable across releases.
+        /// </summary>
+        public const string ProviderName = "Custom Poster Fetcher";
+
+        private static readonly TimeSpan FailureCacheDuration = TimeSpan.FromMinutes(5);
+        private static readonly ImageType[] SupportedImages = { ImageType.Primary };
+
+        /// <summary>
+        /// Remembers URLs that just failed their existence check, so a full library refresh does not
+        /// hammer an endpoint with requests that are already known to fail.
+        /// </summary>
+        private readonly ConcurrentDictionary<string, DateTime> recentFailures =
+            new ConcurrentDictionary<string, DateTime>(StringComparer.Ordinal);
+
+        /// <summary>
+        /// Fetcher configurations already reported, so the ranking is logged once per library setup
+        /// rather than once per item.
+        /// </summary>
+        private readonly ConcurrentDictionary<string, byte> loggedFetcherConfigurations =
+            new ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
+
+        private readonly IHttpClient httpClient;
+        private readonly ILogger logger;
+
+        public PosterImageProvider(IHttpClient httpClient, ILogManager logManager)
+        {
+            this.httpClient = httpClient;
+            this.logger = logManager.GetLogger(ProviderName);
+        }
+
+        public string Name => ProviderName;
+
+        public bool Supports(BaseItem item)
+        {
+            var options = GetOptions();
+            if (options == null)
+            {
+                return false;
+            }
+
+            if (item is Movie)
+            {
+                return options.EnableForMovies;
+            }
+
+            if (item is Series)
+            {
+                return options.EnableForSeries;
+            }
+
+            return false;
+        }
+
+        public IEnumerable<ImageType> GetSupportedImages(BaseItem item)
+        {
+            return SupportedImages;
+        }
+
+        public async Task<IEnumerable<RemoteImageInfo>> GetImages(
+            BaseItem item,
+            LibraryOptions libraryOptions,
+            CancellationToken cancellationToken)
+        {
+            var none = Enumerable.Empty<RemoteImageInfo>();
+
+            var options = GetOptions();
+            if (options == null || string.IsNullOrWhiteSpace(options.UrlTemplate))
+            {
+                return none;
+            }
+
+            this.LogFetcherRanking(item, libraryOptions);
+
+            var rank = DescribeRank(item, libraryOptions);
+
+            string url;
+            string unresolvedToken;
+            if (!PlaceholderCatalog.TryResolve(options.UrlTemplate, item, out url, out unresolvedToken))
+            {
+                this.Log(
+                    options,
+                    rank,
+                    "Skipping \"{0}\": no value for placeholder {{{1}}}.",
+                    item.Name,
+                    unresolvedToken);
+                return none;
+            }
+
+            this.Log(options, rank, "Resolved poster URL for \"{0}\": {1}", item.Name, url);
+
+            if (options.VerifyBeforeOffering && !await this.ImageExists(url, options, rank, cancellationToken).ConfigureAwait(false))
+            {
+                return none;
+            }
+
+            this.Log(options, rank, "Offering poster for \"{0}\": {1}", item.Name, url);
+
+            return new[]
+            {
+                new RemoteImageInfo
+                {
+                    ProviderName = ProviderName,
+                    Url = url,
+                    Type = ImageType.Primary,
+                },
+            };
+        }
+
+        /// <summary>
+        /// Called by Emby to download the bytes, both during a metadata refresh and when a user picks
+        /// the image from the "Change image" dialog.
+        /// </summary>
+        public async Task<HttpResponseInfo> GetImageResponse(string url, CancellationToken cancellationToken)
+        {
+            var options = GetOptions();
+            var timer = Stopwatch.StartNew();
+
+            this.Log(options, null, "GET {0}", url);
+
+            try
+            {
+                var response = await this.httpClient.GetResponse(new HttpRequestOptions
+                {
+                    Url = url,
+                    CancellationToken = cancellationToken,
+                    BufferContent = false,
+                }).ConfigureAwait(false);
+
+                this.Log(
+                    options,
+                    null,
+                    "GET {0} → {1} {2} ({3} ms)",
+                    url,
+                    (int)response.StatusCode,
+                    response.ContentType ?? "no content type",
+                    timer.ElapsedMilliseconds);
+
+                return response;
+            }
+            catch (Exception ex)
+            {
+                this.Log(options, null, "GET {0} failed after {1} ms: {2}", url, timer.ElapsedMilliseconds, ex.Message);
+                throw;
+            }
+        }
+
+        private static PluginOptions GetOptions()
+        {
+            var plugin = CustomPosterFetcherPlugin.Instance;
+            return plugin?.GetPluginOptions();
+        }
+
+        private async Task<bool> ImageExists(string url, PluginOptions options, string rank, CancellationToken cancellationToken)
+        {
+            DateTime failedAt;
+            if (this.recentFailures.TryGetValue(url, out failedAt))
+            {
+                if (DateTime.UtcNow - failedAt < FailureCacheDuration)
+                {
+                    this.Log(
+                        options,
+                        rank,
+                        "Not requesting {0}: it failed {1:0} s ago and is cached as a miss for {2:0} s.",
+                        url,
+                        (DateTime.UtcNow - failedAt).TotalSeconds,
+                        FailureCacheDuration.TotalSeconds);
+                    return false;
+                }
+
+                this.recentFailures.TryRemove(url, out failedAt);
+            }
+
+            var requestOptions = new HttpRequestOptions
+            {
+                Url = url,
+                CancellationToken = cancellationToken,
+                TimeoutMs = Math.Max(1, options.TimeoutSeconds) * 1000,
+                BufferContent = false,
+
+                // A missing poster is an ordinary outcome here, not something to log as an error.
+                LogErrors = false,
+            };
+
+            var timer = Stopwatch.StartNew();
+
+            this.Log(options, rank, "HEAD {0} (timeout {1} s)", url, requestOptions.TimeoutMs / 1000);
+
+            try
+            {
+                var response = await this.httpClient.SendAsync(requestOptions, "HEAD").ConfigureAwait(false);
+
+                // A HEAD response carries no body, but release the stream if one came back anyway.
+                response.Content?.Dispose();
+
+                var contentType = response.ContentType ?? string.Empty;
+
+                this.Log(
+                    options,
+                    rank,
+                    "HEAD {0} → {1} {2} ({3} ms)",
+                    url,
+                    (int)response.StatusCode,
+                    contentType.Length > 0 ? contentType : "no content type",
+                    timer.ElapsedMilliseconds);
+
+                // Servers that answer HEAD without a content type still count as a hit; only an
+                // explicitly non-image type rules the URL out.
+                if (contentType.Length > 0 && !contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+                {
+                    this.Log(options, rank, "Not offering {0}: response was {1}, not an image.", url, contentType);
+                    this.RememberFailure(url);
+                    return false;
+                }
+
+                return true;
+            }
+            catch (HttpException ex) when (IsMethodNotSupported(ex))
+            {
+                // Some servers reject HEAD outright. Give them the benefit of the doubt — Emby will
+                // simply get nothing when it goes on to GET the image.
+                this.Log(
+                    options,
+                    rank,
+                    "HEAD {0} → {1} after {2} ms; the server does not support HEAD, offering the poster unchecked.",
+                    url,
+                    (int)ex.StatusCode,
+                    timer.ElapsedMilliseconds);
+                return true;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                this.Log(options, rank, "Not offering {0}: request failed after {1} ms: {2}", url, timer.ElapsedMilliseconds, ex.Message);
+                this.RememberFailure(url);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// The fetcher list a library actually ranks by — the explicit order when one is set, and
+        /// otherwise the enabled list — together with this plugin's index in it (-1 when absent).
+        /// </summary>
+        private static void GetRanking(string[] order, string[] enabled, out string[] ranking, out int position)
+        {
+            ranking = order.Length > 0 ? order : enabled;
+            position = Array.FindIndex(
+                ranking,
+                name => string.Equals(name, ProviderName, StringComparison.OrdinalIgnoreCase));
+        }
+
+        /// <summary>
+        /// A short "#2/5 outranked" tag for the per-item log lines. <see cref="LogFetcherRanking"/>
+        /// explains the ranking in full, but only once per library configuration, so during a
+        /// library-wide refresh it scrolls out of sight long before the lines someone is actually
+        /// reading. Repeating the position on every line keeps the usual cause of "the plugin logs
+        /// that it offered a poster but the poster never changes" visible where the problem is seen.
+        /// </summary>
+        private static string DescribeRank(BaseItem item, LibraryOptions libraryOptions)
+        {
+            var typeOptions = libraryOptions?.GetTypeOptions(item.GetType().Name);
+
+            string[] ranking;
+            int position;
+            GetRanking(
+                typeOptions?.ImageFetcherOrder ?? new string[0],
+                typeOptions?.ImageFetchers ?? new string[0],
+                out ranking,
+                out position);
+
+            if (ranking.Length == 0)
+            {
+                return "default fetcher order";
+            }
+
+            if (position < 0)
+            {
+                return "unranked, so last of " + ranking.Length;
+            }
+
+            return string.Format(
+                CultureInfo.InvariantCulture,
+                "#{0}/{1} {2}",
+                position + 1,
+                ranking.Length,
+                position == 0 ? "wins" : "outranked");
+        }
+
+        /// <summary>
+        /// Reports where this plugin sits in the library's image fetcher ranking. Emby asks every
+        /// enabled fetcher for candidates and then saves the poster from the highest-ranked one, so a
+        /// plugin that is offering posters but being ignored is nearly always ranked below TMDb —
+        /// which is invisible from this plugin's own log lines. Logged once per distinct
+        /// configuration, at Info, because it is the first thing to check when nothing changes.
+        /// </summary>
+        private void LogFetcherRanking(BaseItem item, LibraryOptions libraryOptions)
+        {
+            var typeName = item.GetType().Name;
+            var typeOptions = libraryOptions?.GetTypeOptions(typeName);
+
+            var order = typeOptions?.ImageFetcherOrder ?? new string[0];
+            var enabled = typeOptions?.ImageFetchers ?? new string[0];
+
+            // Only report a given library configuration once per server run.
+            var signature = typeName + "|" + string.Join(">", order) + "|" + string.Join(",", enabled);
+            if (!this.loggedFetcherConfigurations.TryAdd(signature, 0))
+            {
+                return;
+            }
+
+            string[] ranking;
+            int position;
+            GetRanking(order, enabled, out ranking, out position);
+
+            if (ranking.Length == 0)
+            {
+                this.logger.Info(
+                    "Image fetchers for {0} in this library are at their defaults, so the ranking is Emby's own. "
+                    + "If posters offered here are ignored, set the order under Library → Advanced → Image Fetchers.",
+                    typeName);
+            }
+            else if (position < 0)
+            {
+                this.logger.Info(
+                    "Image fetchers for {0}: {1}. \"{2}\" is not in that list, so Emby ranks it last and a "
+                    + "higher fetcher's poster wins. Tick it and drag it to the top under "
+                    + "Library → Advanced → Image Fetchers. (A fetcher is listed under the name it had when "
+                    + "you configured it, so a renamed plugin has to be re-ticked.)",
+                    typeName,
+                    string.Join(", ", ranking),
+                    ProviderName);
+            }
+            else if (position > 0)
+            {
+                this.logger.Info(
+                    "Image fetchers for {0}: {1}. \"{2}\" is #{3} of {4}, so the posters it offers are only used "
+                    + "when every fetcher above it returns none. Drag it to the top under "
+                    + "Library → Advanced → Image Fetchers to have it win.",
+                    typeName,
+                    string.Join(", ", ranking),
+                    ProviderName,
+                    position + 1,
+                    ranking.Length);
+            }
+            else
+            {
+                this.logger.Info(
+                    "Image fetchers for {0}: {1}. \"{2}\" is first, so its posters win.",
+                    typeName,
+                    string.Join(", ", ranking),
+                    ProviderName);
+            }
+
+            if (typeOptions != null && !typeOptions.IsEnabled(ImageType.Primary))
+            {
+                this.logger.Info(
+                    "Primary (poster) images are turned off for {0} in this library, so no poster will be saved "
+                    + "no matter which fetcher offers one.",
+                    typeName);
+            }
+        }
+
+        /// <summary>
+        /// Writes one line about a request or a decision. Always at Debug, so Emby's debug logging
+        /// shows everything; also at Info when the user has ticked "Log every request", so the
+        /// requests can be followed in the normal log without turning debug logging on server-wide.
+        /// </summary>
+        /// <param name="rank">
+        /// Where this plugin sits in the library's image fetcher ranking, prefixed to the line.
+        /// Null for lines with no library context, such as the image download itself.
+        /// </param>
+        private void Log(PluginOptions options, string rank, string message, params object[] args)
+        {
+            // Prefixed rather than passed as an argument: the caller's message is a format string
+            // and the rank tag is already formatted, and it carries no braces of its own.
+            var line = rank == null ? message : "[" + rank + "] " + message;
+
+            this.logger.Debug(line, args);
+
+            if (options != null && options.LogRequests)
+            {
+                this.logger.Info(line, args);
+            }
+        }
+
+        private static bool IsMethodNotSupported(HttpException ex)
+        {
+            return ex.StatusCode == HttpStatusCode.MethodNotAllowed
+                   || ex.StatusCode == HttpStatusCode.NotImplemented;
+        }
+
+        private void RememberFailure(string url)
+        {
+            // Keep the cache from growing without bound on a large library of misses.
+            if (this.recentFailures.Count > 1000)
+            {
+                this.recentFailures.Clear();
+            }
+
+            this.recentFailures[url] = DateTime.UtcNow;
+        }
+    }
+}

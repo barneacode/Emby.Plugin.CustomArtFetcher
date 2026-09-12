@@ -1,0 +1,47 @@
+{
+  "version": "2.0.0",
+  "options": {
+    "env": {
+      "PATH": "/usr/local/share/dotnet:${env:PATH}",
+      "DOTNET_ROOT": "/usr/local/share/dotnet"
+    }
+  },
+  "tasks": [
+    {
+      "label": "build",
+      "type": "shell",
+      "command": "dotnet",
+      "args": ["build", "${workspaceFolder}/Emby.Plugin.CustomPosterFetcher.sln", "-c", "Release"],
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "clean",
+      "type": "shell",
+      "command": "dotnet",
+      "args": ["clean", "${workspaceFolder}/Emby.Plugin.CustomPosterFetcher.sln"],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "build and deploy to Emby",
+      "detail": "Builds and copies the plugin DLL into the Emby plugins folder you enter.",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/Emby.Plugin.CustomPosterFetcher.sln",
+        "-c", "Release",
+        "-p:EmbyPluginsDir=${input:embyPluginsDir}"
+      ],
+      "problemMatcher": "$msCompile"
+    }
+  ],
+  "inputs": [
+    {
+      "id": "embyPluginsDir",
+      "type": "promptString",
+      "description": "Path to Emby's plugins folder",
+      "default": "${env:HOME}/.config/emby-server/plugins"
+    }
+  ]
+}

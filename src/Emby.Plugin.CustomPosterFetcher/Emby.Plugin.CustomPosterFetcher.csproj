@@ -1,0 +1,86 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <NoWarn>1701;1702;1591</NoWarn>
+    <GenerateSerializationAssemblies>Off</GenerateSerializationAssemblies>
+    <RootNamespace>Emby.Plugin.CustomPosterFetcher</RootNamespace>
+    <AssemblyName>Emby.Plugin.CustomPosterFetcher</AssemblyName>
+    <!-- The last part is the build number, bumped by IncrementBuildNumber on every real build. -->
+    <VersionBase>1.1.0</VersionBase>
+    <Company>-</Company>
+    <Product>Custom Poster Fetcher</Product>
+  </PropertyGroup>
+
+  <!--
+    The compiler bakes the absolute PDB path into the DLL's debug directory, which would ship
+    the build machine's home directory to every user. Release builds drop the PDB entirely;
+    Debug builds keep it but map the project directory to a relative root, so neither DLL
+    carries an absolute path.
+  -->
+  <PropertyGroup>
+    <Deterministic>true</Deterministic>
+    <PathMap>$(MSBuildProjectDirectory)=.</PathMap>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="thumb.png" />
+    <EmbeddedResource Include="thumb.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MediaBrowser.Server.Core" Version="4.10.0.24-beta2" />
+  </ItemGroup>
+
+  <!--
+    Stamps the assembly with $(VersionBase).<build-number> and stores the next build number in
+    build-number.txt, so every build produces a version Emby can tell apart from the last one.
+    Design-time builds (the IDE's background builds) are skipped, and `-p:IncrementBuildNumber=false`
+    turns it off for a one-off build.
+  -->
+  <Target Name="IncrementBuildNumber"
+          BeforeTargets="GetAssemblyVersion;CoreGenerateAssemblyInfo"
+          Condition="'$(DesignTimeBuild)' != 'true' And '$(IncrementBuildNumber)' != 'false'">
+
+    <PropertyGroup>
+      <BuildNumberFile>$(MSBuildProjectDirectory)/build-number.txt</BuildNumberFile>
+    </PropertyGroup>
+
+    <ReadLinesFromFile File="$(BuildNumberFile)" Condition="Exists('$(BuildNumberFile)')">
+      <Output TaskParameter="Lines" PropertyName="BuildNumber" />
+    </ReadLinesFromFile>
+
+    <PropertyGroup>
+      <BuildNumber Condition="'$(BuildNumber)' == ''">0</BuildNumber>
+      <Version>$(VersionBase).$(BuildNumber)</Version>
+      <AssemblyVersion>$(Version)</AssemblyVersion>
+      <FileVersion>$(Version)</FileVersion>
+      <InformationalVersion>$(Version)</InformationalVersion>
+    </PropertyGroup>
+
+    <!-- Written ahead for the next build, so this one carries the number the file held. -->
+    <WriteLinesToFile File="$(BuildNumberFile)"
+                      Lines="$([MSBuild]::Add($(BuildNumber), 1))"
+                      Overwrite="true"
+                      WriteOnlyWhenDifferent="false" />
+
+    <Message Importance="high" Text="$(AssemblyName) version $(Version)" />
+  </Target>
+
+  <!--
+    Optional: set EmbyPluginsDir (in Directory.Build.props, an env var, or on the command line)
+    to have every build drop the plugin straight into Emby's plugins folder, e.g.
+      dotnet build -c Release -p:EmbyPluginsDir=$HOME/.config/emby-server/plugins
+  -->
+  <Target Name="DeployToEmby" AfterTargets="Build" Condition="'$(EmbyPluginsDir)' != ''">
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(EmbyPluginsDir)" />
+    <Message Importance="high" Text="Copied $(TargetFileName) to $(EmbyPluginsDir)" />
+  </Target>
+
+</Project>

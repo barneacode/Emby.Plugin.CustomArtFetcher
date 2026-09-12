@@ -1,0 +1,26 @@
+{
+  "dotnet.defaultSolution": "Emby.Plugin.CustomPosterFetcher.sln",
+
+  // The .NET SDK is installed at /usr/local/share/dotnet and is put on the PATH only by
+  // /etc/paths.d/dotnet, which applies to login shells. VS Code launched from Finder or the
+  // Dock inherits launchd's minimal PATH instead, so the C# extensions report "the .NET SDK
+  // cannot be found". The settings below point them at the SDK directly, independent of PATH.
+  "dotnetAcquisitionExtension.existingDotnetPath": [
+    { "extensionId": "ms-dotnettools.csharp", "path": "/usr/local/share/dotnet/dotnet" },
+    { "extensionId": "ms-dotnettools.csdevkit", "path": "/usr/local/share/dotnet/dotnet" },
+    { "extensionId": "ms-dotnettools.vscode-dotnet-runtime", "path": "/usr/local/share/dotnet/dotnet" }
+  ],
+  "omnisharp.dotnetPath": "/usr/local/share/dotnet",
+  "omnisharp.useModernNet": true,
+
+  // Same PATH gap, for the integrated terminal and for anything the extensions spawn.
+  "terminal.integrated.env.osx": {
+    "PATH": "/usr/local/share/dotnet:${env:PATH}",
+    "DOTNET_ROOT": "/usr/local/share/dotnet"
+  },
+
+  "files.exclude": {
+    "**/bin": true,
+    "**/obj": true
+  }
+}
