@@ -7,8 +7,8 @@
     <GenerateSerializationAssemblies>Off</GenerateSerializationAssemblies>
     <RootNamespace>Emby.Plugin.CustomArtFetcher</RootNamespace>
     <AssemblyName>Emby.Plugin.CustomArtFetcher</AssemblyName>
-    <!-- The last part is the build number, bumped by IncrementBuildNumber on every real build. -->
-    <VersionBase>1.1.0</VersionBase>
+    <!-- Major.minor; the third part is the build number, bumped by IncrementBuildNumber on every real build. -->
+    <VersionBase>1.1</VersionBase>
     <Company>-</Company>
     <Product>Custom Art Fetcher</Product>
   </PropertyGroup>
@@ -39,7 +39,7 @@
   </ItemGroup>
 
   <!--
-    Stamps the assembly with $(VersionBase).<build-number> and stores the next build number in
+    Stamps the assembly with $(VersionBase).<build-number> (major.minor.build) and stores the next build number in
     build-number.txt, so every build produces a version Emby can tell apart from the last one.
     Design-time builds (the IDE's background builds) are skipped, and `-p:IncrementBuildNumber=false`
     turns it off for a one-off build.

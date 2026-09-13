@@ -74,17 +74,7 @@ namespace Emby.Plugin.CustomArtFetcher.Providers
                 return false;
             }
 
-            if (item is Movie)
-            {
-                return options.EnableForMovies;
-            }
-
-            if (item is Series)
-            {
-                return options.EnableForSeries;
-            }
-
-            return false;
+            return item is Movie || item is Series;
         }
 
         /// <summary>
