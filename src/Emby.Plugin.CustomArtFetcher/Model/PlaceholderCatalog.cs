@@ -2,7 +2,6 @@ namespace Emby.Plugin.CustomArtFetcher.Model
 {
     using System;
     using System.Collections.Generic;
-    using System.Globalization;
     using System.Linq;
     using System.Text;
     using System.Text.RegularExpressions;
@@ -17,9 +16,6 @@ namespace Emby.Plugin.CustomArtFetcher.Model
     /// </summary>
     public static class PlaceholderCatalog
     {
-        private const string RawPrefix = "raw:";
-        private const string ProviderPrefix = "provider:";
-
         private static readonly Regex TokenPattern = new Regex(@"\{([^{}]+)\}", RegexOptions.Compiled);
 
         private static readonly Placeholder[] Placeholders =
@@ -30,10 +26,6 @@ namespace Emby.Plugin.CustomArtFetcher.Model
             new Placeholder("tvmaze_id", "TVmaze id of the item", item => item.GetProviderId(MetadataProviders.TvMaze)),
             new Placeholder("tvrage_id", "TVRage id of the item", item => item.GetProviderId(MetadataProviders.TvRage)),
             new Placeholder("item_type", "Movie or Series", item => item.GetType().Name),
-            new Placeholder("name", "Title as Emby knows it", item => item.Name),
-            new Placeholder("original_title", "Original-language title, when known", item => item.OriginalTitle),
-            // Convert.ToString handles both int and int? here, yielding string.Empty when unset.
-            new Placeholder("year", "Production year", item => Convert.ToString(item.ProductionYear, CultureInfo.InvariantCulture)),
         };
 
         private static readonly Dictionary<string, Placeholder> Lookup =
@@ -69,21 +61,15 @@ namespace Emby.Plugin.CustomArtFetcher.Model
 
                 var token = match.Groups[1].Value.Trim();
 
-                var raw = token.StartsWith(RawPrefix, StringComparison.OrdinalIgnoreCase);
-                if (raw)
-                {
-                    token = token.Substring(RawPrefix.Length).Trim();
-                }
-
                 var value = ResolveToken(token, item);
 
                 if (string.IsNullOrEmpty(value))
                 {
-                    missing = match.Groups[1].Value.Trim();
+                    missing = token;
                     return string.Empty;
                 }
 
-                return raw ? value : Uri.EscapeDataString(value);
+                return Uri.EscapeDataString(value);
             });
 
             if (missing != null)
@@ -108,8 +94,6 @@ namespace Emby.Plugin.CustomArtFetcher.Model
                 builder.Append('{').Append(placeholder.Token).Append("}  —  ").AppendLine(placeholder.Description);
             }
 
-            builder.AppendLine("{provider:<name>}  —  any other provider id Emby holds for the item, by name");
-            builder.AppendLine("{raw:<token>}  —  the same value without URL-encoding, e.g. {raw:name}");
             builder.Append("Placeholders are case-insensitive. If any placeholder in the URL is empty for an item ")
                    .Append("(for example {tmdb_id} on a movie that has no TMDb id), the item is skipped and its ")
                    .Append("existing image is left alone.");
@@ -138,12 +122,6 @@ namespace Emby.Plugin.CustomArtFetcher.Model
 
         private static string ResolveToken(string token, BaseItem item)
         {
-            if (token.StartsWith(ProviderPrefix, StringComparison.OrdinalIgnoreCase))
-            {
-                var providerName = token.Substring(ProviderPrefix.Length).Trim();
-                return string.IsNullOrEmpty(providerName) ? null : item.GetProviderId(providerName);
-            }
-
             Placeholder placeholder;
             return Lookup.TryGetValue(token, out placeholder) ? placeholder.Resolve(item) : null;
         }

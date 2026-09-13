@@ -73,9 +73,9 @@ cycle.
 
 ### Placeholders
 
-`{imdb_id}` `{tmdb_id}` `{tvdb_id}` `{tvmaze_id}` `{tvrage_id}` `{item_type}` `{name}`
-`{original_title}` `{year}`, plus `{provider:<name>}` for any other provider id and `{raw:<token>}`
-to skip URL-encoding. Case-insensitive.
+`{imdb_id}` `{tmdb_id}` `{tvdb_id}` `{tvmaze_id}` `{tvrage_id}` `{item_type}`
+
+Case-insensitive, and every value is URL-encoded.
 
 If any placeholder is empty for an item — say `{tmdb_id}` on a movie with no TMDb id — the plugin
 offers nothing for that item and its existing artwork is left alone.
