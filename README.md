@@ -12,6 +12,13 @@ Example URL:
 https://art.example.com/posters/{tmdb_id}.jpg
 ```
 
+<table>
+<tr>
+<td width="50%"><img src="images/settings_top.png" alt="The top of the settings page: a toggle and URL for each image type, each with its own Test button and result." /></td>
+<td width="50%"><img src="images/settings_bottom.png" alt="The bottom of the settings page: the placeholder reference and the behaviour options." /></td>
+</tr>
+</table>
+
 ## Settings
 
 The plugin gets its own **Custom Art Fetcher** entry in the dashboard sidebar, under *Advanced*
@@ -78,49 +85,9 @@ feeds both the substitution and the help text on the settings page; add a token 
 in the UI automatically.
 
 
-## Build
-
-Requires the [.NET SDK](https://dotnet.microsoft.com/download) (8.0 or newer). Open the folder in VS Code (the C# Dev Kit extension is recommended — see `.vscode/extensions.json`)
-and press <kbd>⇧⌘B</kbd>, or from a terminal:
-
-```sh
-dotnet build -c Release
-```
-
-Output: `src/Emby.Plugin.CustomArtFetcher/bin/Release/netstandard2.0/Emby.Plugin.CustomArtFetcher.dll`.
-
-Every build stamps a new version: `$(VersionBase)` in the `.csproj` sets major and minor, and
-the build number in `src/Emby.Plugin.CustomArtFetcher/build-number.txt` supplies the third part, incrementing
-each time — so the version Emby shows on the plugin page always identifies the exact DLL you
-installed. The build prints it (`Emby.Plugin.CustomArtFetcher version 1.1.13`). Bump `VersionBase` by hand
-for a real release; pass `-p:IncrementBuildNumber=false` to build without moving the counter.
-
-Release builds are stripped of the PDB, so the DLL carries no absolute path from the machine that
-built it; Debug builds keep their symbols and map the project to a relative root.
-
-> On macOS the SDK often installs to `/usr/local/share/dotnet` and reaches the PATH only through
-> `/etc/paths.d/dotnet`, which login shells read but VS Code launched from Finder or the Dock does
-> not — so the C# extension reports that the .NET SDK cannot be found. `.vscode/settings.json`
-> works around it by pointing the extensions straight at the SDK and setting `DOTNET_ROOT` for the
-> integrated terminal and tasks. For your own shell, add
-> `export PATH=/usr/local/share/dotnet:$PATH` to `~/.zshrc`; to fix it machine-wide, run
-> `sudo ln -s /usr/local/share/dotnet/dotnet /usr/local/bin/dotnet`.
-
-### Build straight into Emby
-
-Set `EmbyPluginsDir` and the DLL is copied to the server after each build:
-
-```sh
-dotnet build -c Release -p:EmbyPluginsDir=~/.config/emby-server/plugins
-```
-
-The VS Code task **"build and deploy to Emby"** (⇧⌘P → *Run Task*) does the same and prompts for the
-folder.
-
 ## Install
 
-Copy `Emby.Plugin.CustomArtFetcher.dll` into Emby's `plugins` folder (or use the deploy build
-above) and restart the server:
+Copy `Emby.Plugin.CustomArtFetcher.dll` into Emby's `plugins` folder and restart the server:
 
 - macOS: `~/.config/emby-server/plugins/` (or the `programdata/plugins` of your install)
 - Windows: `%AppData%\Emby-Server\programdata\plugins\`
