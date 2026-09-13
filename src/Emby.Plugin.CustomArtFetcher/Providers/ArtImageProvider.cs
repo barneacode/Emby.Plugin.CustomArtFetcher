@@ -135,20 +135,20 @@ namespace Emby.Plugin.CustomArtFetcher.Providers
                         options,
                         rank,
                         "Skipping the {0} for \"{1}\": no value for placeholder {{{2}}}.",
-                        image.Type,
+                        DisplayName(image.Type),
                         item.Name,
                         unresolvedToken);
                     continue;
                 }
 
-                this.Log(options, rank, "Resolved {0} URL for \"{1}\": {2}", image.Type, item.Name, url);
+                this.Log(options, rank, "Resolved {0} URL for \"{1}\": {2}", DisplayName(image.Type), item.Name, url);
 
                 if (options.VerifyBeforeOffering && !await this.ImageExists(url, options, rank, cancellationToken).ConfigureAwait(false))
                 {
                     continue;
                 }
 
-                this.Log(options, rank, "Offering the {0} for \"{1}\": {2}", image.Type, item.Name, url);
+                this.Log(options, rank, "Offering the {0} for \"{1}\": {2}", DisplayName(image.Type), item.Name, url);
 
                 offered.Add(new RemoteImageInfo
                 {
@@ -214,6 +214,23 @@ namespace Emby.Plugin.CustomArtFetcher.Providers
             AddConfiguredImage(configured, ImageType.Logo, options.EnableLogo, options.LogoUrlTemplate);
 
             return configured;
+        }
+
+        /// <summary>
+        /// The name the settings page gives an image type, for log lines. Emby's own enum names
+        /// do not all match — ImageType.Primary is the Poster on the form, and ImageType.Thumb
+        /// the Thumbnail — and a log that disagrees with the UI is a log that misleads.
+        /// </summary>
+        private static string DisplayName(ImageType type)
+        {
+            switch (type)
+            {
+                case ImageType.Primary: return "Poster";
+                case ImageType.Backdrop: return "Backdrop";
+                case ImageType.Thumb: return "Thumbnail";
+                case ImageType.Logo: return "Logo";
+                default: return type.ToString();
+            }
         }
 
         private static void AddConfiguredImage(List<ConfiguredImage> configured, ImageType type, bool enabled, string template)

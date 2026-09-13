@@ -29,7 +29,7 @@ namespace Emby.Plugin.CustomArtFetcher
         public const string PluginName = "Custom Art Fetcher";
 
         public const string PluginDescription =
-            "Fetches posters, backdrops, thumbs and logos for movies and series from URL templates "
+            "Fetches Posters, Backdrops, Thumbnails and Logos for movies and series from URL templates "
             + "you configure, filled in from the metadata ids Emby holds for each item.";
 
         /// <summary>Never change this — Emby identifies the plugin (and its stored config) by it.</summary>

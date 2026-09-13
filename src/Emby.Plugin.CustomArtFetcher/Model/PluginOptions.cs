@@ -41,7 +41,7 @@ namespace Emby.Plugin.CustomArtFetcher.Model
 
         [VisibleCondition(nameof(EnablePoster), SimpleCondition.IsTrue)]
         public ButtonItem TestPosterButton { get; set; } =
-            new ButtonItem("Test poster URL") { Icon = IconNames.image_search, Data1 = "TestPrimary" };
+            new ButtonItem("Test Poster URL") { Icon = IconNames.image_search, Data1 = "TestPrimary" };
 
         [VisibleCondition(nameof(EnablePoster), SimpleCondition.IsTrue)]
         public StatusItem PosterStatus { get; set; } =
@@ -56,7 +56,7 @@ namespace Emby.Plugin.CustomArtFetcher.Model
 
         [VisibleCondition(nameof(EnableBackdrop), SimpleCondition.IsTrue)]
         public ButtonItem TestBackdropButton { get; set; } =
-            new ButtonItem("Test backdrop URL") { Icon = IconNames.image_search, Data1 = "TestBackdrop" };
+            new ButtonItem("Test Backdrop URL") { Icon = IconNames.image_search, Data1 = "TestBackdrop" };
 
         [VisibleCondition(nameof(EnableBackdrop), SimpleCondition.IsTrue)]
         public StatusItem BackdropStatus { get; set; } =
@@ -65,17 +65,17 @@ namespace Emby.Plugin.CustomArtFetcher.Model
         [DisplayName("Fetch Thumbnails")]
         public bool EnableThumb { get; set; } = false;
 
-        [DisplayName("Thumb URL")]
+        [DisplayName("Thumbnail URL")]
         [VisibleCondition(nameof(EnableThumb), SimpleCondition.IsTrue)]
         public string ThumbUrlTemplate { get; set; }
 
         [VisibleCondition(nameof(EnableThumb), SimpleCondition.IsTrue)]
         public ButtonItem TestThumbButton { get; set; } =
-            new ButtonItem("Test thumb URL") { Icon = IconNames.image_search, Data1 = "TestThumb" };
+            new ButtonItem("Test Thumbnail URL") { Icon = IconNames.image_search, Data1 = "TestThumb" };
 
         [VisibleCondition(nameof(EnableThumb), SimpleCondition.IsTrue)]
         public StatusItem ThumbStatus { get; set; } =
-            new StatusItem("Thumb URL", "Not tested yet.", ItemStatus.Unknown);
+            new StatusItem("Thumbnail URL", "Not tested yet.", ItemStatus.Unknown);
 
         [DisplayName("Fetch Logos")]
         public bool EnableLogo { get; set; } = false;
@@ -86,7 +86,7 @@ namespace Emby.Plugin.CustomArtFetcher.Model
 
         [VisibleCondition(nameof(EnableLogo), SimpleCondition.IsTrue)]
         public ButtonItem TestLogoButton { get; set; } =
-            new ButtonItem("Test logo URL") { Icon = IconNames.image_search, Data1 = "TestLogo" };
+            new ButtonItem("Test Logo URL") { Icon = IconNames.image_search, Data1 = "TestLogo" };
 
         [VisibleCondition(nameof(EnableLogo), SimpleCondition.IsTrue)]
         public StatusItem LogoStatus { get; set; } =
@@ -152,10 +152,10 @@ namespace Emby.Plugin.CustomArtFetcher.Model
             // A blank URL never blocks saving: the page has to be storable half-finished, and an
             // image type left switched on with no URL simply fetches nothing (the provider skips
             // empty templates). Only a URL that has actually been typed is held to the format rules.
-            this.UrlTemplate = ValidateTemplate(context, nameof(this.UrlTemplate), this.UrlTemplate, "poster");
-            this.BackdropUrlTemplate = ValidateTemplate(context, nameof(this.BackdropUrlTemplate), this.BackdropUrlTemplate, "backdrop");
-            this.ThumbUrlTemplate = ValidateTemplate(context, nameof(this.ThumbUrlTemplate), this.ThumbUrlTemplate, "thumb");
-            this.LogoUrlTemplate = ValidateTemplate(context, nameof(this.LogoUrlTemplate), this.LogoUrlTemplate, "logo");
+            this.UrlTemplate = ValidateTemplate(context, nameof(this.UrlTemplate), this.UrlTemplate, "Poster");
+            this.BackdropUrlTemplate = ValidateTemplate(context, nameof(this.BackdropUrlTemplate), this.BackdropUrlTemplate, "Backdrop");
+            this.ThumbUrlTemplate = ValidateTemplate(context, nameof(this.ThumbUrlTemplate), this.ThumbUrlTemplate, "Thumbnail");
+            this.LogoUrlTemplate = ValidateTemplate(context, nameof(this.LogoUrlTemplate), this.LogoUrlTemplate, "Logo");
         }
 
         private static void ResetStatus(StatusItem status, string caption)
