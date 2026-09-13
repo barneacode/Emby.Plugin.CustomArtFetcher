@@ -1,0 +1,104 @@
+# Builds the plugin, and on main publishes the DLL as a GitHub release.
+#
+# Two jobs: `build` compiles and hands the DLL on as an artifact, and runs for pull requests as
+# the PR check. `release` publishes that artifact, and is gated twice over — it needs `build` to
+# have passed, and it is skipped entirely on pull requests, so a PR is compiled but never
+# publishes anything.
+#
+# The version is $(VersionBase) from the .csproj plus the workflow run number, rather than the
+# build-number.txt counter: the counter lives in the working tree and CI never commits, so every
+# run would otherwise stamp the same number. run_number only ever goes up, so each release
+# carries a version Emby can tell apart from the last.
+
+name: Release
+
+on:
+  push:
+    branches: [ "main" ]
+    # Only a change to the plugin itself is worth a new build: README and workflow commits
+    # would otherwise each publish a release identical to the one before it.
+    paths: [ "src/**" ]
+  pull_request:
+    branches: [ "main" ]
+    paths: [ "src/**" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Work out the version
+        id: version
+        run: |
+          csproj=src/Emby.Plugin.CustomArtFetcher/Emby.Plugin.CustomArtFetcher.csproj
+          base=$(sed -n 's:.*<VersionBase>\(.*\)</VersionBase>.*:\1:p' "$csproj")
+          if [ -z "$base" ]; then
+            echo "::error::No <VersionBase> found in $csproj"
+            exit 1
+          fi
+          echo "version=$base.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: |
+          dotnet build Emby.Plugin.CustomArtFetcher.sln \
+            --no-restore \
+            -c Release \
+            -p:IncrementBuildNumber=false \
+            -p:Version=${{ steps.version.outputs.version }} \
+            -p:AssemblyVersion=${{ steps.version.outputs.version }} \
+            -p:FileVersion=${{ steps.version.outputs.version }} \
+            -p:InformationalVersion=${{ steps.version.outputs.version }}
+
+      - name: Keep the DLL for the release job
+        uses: actions/upload-artifact@v4
+        with:
+          name: plugin
+          path: src/Emby.Plugin.CustomArtFetcher/bin/Release/netstandard2.0/Emby.Plugin.CustomArtFetcher.dll
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Fetch the DLL built above
+        uses: actions/download-artifact@v4
+        with:
+          name: plugin
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          {
+            echo "Built from \`$GITHUB_SHA\`."
+            echo
+            echo "Copy \`Emby.Plugin.CustomArtFetcher.dll\` into Emby's plugins folder, delete any"
+            echo "older copy of the plugin from that folder, and restart the server."
+          } > notes.md
+
+          gh release create "v$VERSION" Emby.Plugin.CustomArtFetcher.dll \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Custom Art Fetcher $VERSION" \
+            --notes-file notes.md

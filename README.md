@@ -1,6 +1,6 @@
 # Custom Art Fetcher
 
-[![.NET](https://github.com/barneacode/Emby.Plugin.CustomArtFetcher/actions/workflows/dotnet.yml/badge.svg)](https://github.com/barneacode/Emby.Plugin.CustomArtFetcher/actions/workflows/dotnet.yml)
+[![Release](https://github.com/barneacode/Emby.Plugin.CustomArtFetcher/actions/workflows/release.yml/badge.svg)](https://github.com/barneacode/Emby.Plugin.CustomArtFetcher/actions/workflows/release.yml)
 
 An Emby 4.10 plugin that fetches poster (primary) images for **movies** and **series** from a URL you configure, with
 placeholders filled in per item from the metadata ids Emby holds for it. Point it at your own poster
