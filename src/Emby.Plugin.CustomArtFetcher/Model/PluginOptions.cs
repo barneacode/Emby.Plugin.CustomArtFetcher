@@ -1,4 +1,4 @@
-namespace Emby.Plugin.CustomPosterFetcher.Model
+namespace Emby.Plugin.CustomArtFetcher.Model
 {
     using System;
     using System.ComponentModel;
@@ -15,16 +15,13 @@ namespace Emby.Plugin.CustomPosterFetcher.Model
     /// </summary>
     public class PluginOptions : EditableOptionsBase
     {
-        public override string EditorTitle => "Custom Poster Fetcher";
+        public override string EditorTitle => "Custom Art Fetcher";
 
         public override string EditorDescription =>
-            "Fetches images for movies and series from URLs of your own.\n"
-            + "Write the URL with placeholders in curly braces — they are filled in per item from the "
-            + "metadata ids Emby has for it.\n"
-            + "After saving, enable \"Custom Poster Fetcher\" under Library → Advanced → Image Fetchers and drag it "
-            + "to the position you want it to have relative to the other fetchers.\n"
-            + "An image type also has to be enabled for the library itself, under "
-            + "Library \u2192 Advanced \u2192 Images.";
+            "Fetches images for movies and series from URLs of your own, filled in per item from the "
+            + "metadata ids Emby holds for it.\n"
+            + "Each library also has to enable \"Custom Art Fetcher\" under Advanced \u2192 Image Fetchers "
+            + "(ranked above the others), and the image types under Advanced \u2192 Images.";
 
         /// <summary>
         /// The image types this plugin can offer. Emby's ImageType enum lists more, but only these
@@ -32,66 +29,66 @@ namespace Emby.Plugin.CustomPosterFetcher.Model
         /// Banner default to a limit of 0, so offering them would do nothing until the user raised
         /// that limit in the library's own settings.
         /// </summary>
+        /// <summary>Separates the page description above from the first toggle.</summary>
+        public SpacerItem SpacerTop { get; set; } = new SpacerItem();
+
         [DisplayName("Fetch posters")]
-        [Description("The main cover image.")]
         public bool EnablePoster { get; set; } = true;
 
         [DisplayName("Poster URL")]
-        [Description("For example: https://art.example.com/posters/{tmdb_id}.jpg\n"
-                     + "See the list of available placeholders below.")]
-        [EditMultiline(2)]
-        [EnabledCondition(nameof(EnablePoster), SimpleCondition.IsTrue)]
+        [VisibleCondition(nameof(EnablePoster), SimpleCondition.IsTrue)]
         public string UrlTemplate { get; set; }
 
+        [VisibleCondition(nameof(EnablePoster), SimpleCondition.IsTrue)]
         public ButtonItem TestPosterButton { get; set; } =
             new ButtonItem("Test poster URL") { Icon = IconNames.image_search, Data1 = "TestPrimary" };
 
+        [VisibleCondition(nameof(EnablePoster), SimpleCondition.IsTrue)]
         public StatusItem PosterStatus { get; set; } =
             new StatusItem("Poster URL", "Not tested yet.", ItemStatus.Unknown);
 
         [DisplayName("Fetch backdrops")]
-        [Description("The wide background art shown behind an item. Emby ignores backdrops narrower "
-                     + "than 1280 px.")]
         public bool EnableBackdrop { get; set; } = false;
 
         [DisplayName("Backdrop URL")]
-        [EditMultiline(2)]
-        [EnabledCondition(nameof(EnableBackdrop), SimpleCondition.IsTrue)]
+        [VisibleCondition(nameof(EnableBackdrop), SimpleCondition.IsTrue)]
         public string BackdropUrlTemplate { get; set; }
 
+        [VisibleCondition(nameof(EnableBackdrop), SimpleCondition.IsTrue)]
         public ButtonItem TestBackdropButton { get; set; } =
             new ButtonItem("Test backdrop URL") { Icon = IconNames.image_search, Data1 = "TestBackdrop" };
 
+        [VisibleCondition(nameof(EnableBackdrop), SimpleCondition.IsTrue)]
         public StatusItem BackdropStatus { get; set; } =
             new StatusItem("Backdrop URL", "Not tested yet.", ItemStatus.Unknown);
 
-        [DisplayName("Fetch thumbs")]
-        [Description("The wide thumbnail used in some list and resume views.")]
+        [DisplayName("Fetch Thumbnails")]
         public bool EnableThumb { get; set; } = false;
 
         [DisplayName("Thumb URL")]
-        [EditMultiline(2)]
-        [EnabledCondition(nameof(EnableThumb), SimpleCondition.IsTrue)]
+        [VisibleCondition(nameof(EnableThumb), SimpleCondition.IsTrue)]
         public string ThumbUrlTemplate { get; set; }
 
+        [VisibleCondition(nameof(EnableThumb), SimpleCondition.IsTrue)]
         public ButtonItem TestThumbButton { get; set; } =
             new ButtonItem("Test thumb URL") { Icon = IconNames.image_search, Data1 = "TestThumb" };
 
+        [VisibleCondition(nameof(EnableThumb), SimpleCondition.IsTrue)]
         public StatusItem ThumbStatus { get; set; } =
             new StatusItem("Thumb URL", "Not tested yet.", ItemStatus.Unknown);
 
         [DisplayName("Fetch logos")]
-        [Description("The title treatment overlaid on the backdrop, usually a transparent PNG.")]
         public bool EnableLogo { get; set; } = false;
 
         [DisplayName("Logo URL")]
-        [EditMultiline(2)]
-        [EnabledCondition(nameof(EnableLogo), SimpleCondition.IsTrue)]
+        [VisibleCondition(nameof(EnableLogo), SimpleCondition.IsTrue)]
         public string LogoUrlTemplate { get; set; }
 
+        [VisibleCondition(nameof(EnableLogo), SimpleCondition.IsTrue)]
         public ButtonItem TestLogoButton { get; set; } =
             new ButtonItem("Test logo URL") { Icon = IconNames.image_search, Data1 = "TestLogo" };
 
+        [VisibleCondition(nameof(EnableLogo), SimpleCondition.IsTrue)]
         public StatusItem LogoStatus { get; set; } =
             new StatusItem("Logo URL", "Not tested yet.", ItemStatus.Unknown);
 
@@ -130,7 +127,7 @@ namespace Emby.Plugin.CustomPosterFetcher.Model
 
         [DisplayName("Log every request")]
         [Description("Writes a line to the Emby log for each URL this plugin builds, each request it "
-                     + "sends and the response it got back, under the \"Custom Poster Fetcher\" logger. "
+                     + "sends and the response it got back, under the \"Custom Art Fetcher\" logger. "
                      + "Leave this off for normal use — a full library refresh logs one line per item. "
                      + "These messages are always written at Debug level, so turning on Emby's debug "
                      + "logging shows them too.")]
@@ -150,7 +147,7 @@ namespace Emby.Plugin.CustomPosterFetcher.Model
         {
             ResetStatus(this.PosterStatus, "Poster URL");
             ResetStatus(this.BackdropStatus, "Backdrop URL");
-            ResetStatus(this.ThumbStatus, "Thumb URL");
+            ResetStatus(this.ThumbStatus, "Thumbnail URL");
             ResetStatus(this.LogoStatus, "Logo URL");
         }
 

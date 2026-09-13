@@ -11,7 +11,7 @@
       "label": "build",
       "type": "shell",
       "command": "dotnet",
-      "args": ["build", "${workspaceFolder}/Emby.Plugin.CustomPosterFetcher.sln", "-c", "Release"],
+      "args": ["build", "${workspaceFolder}/Emby.Plugin.CustomArtFetcher.sln", "-c", "Release"],
       "group": { "kind": "build", "isDefault": true },
       "problemMatcher": "$msCompile"
     },
@@ -19,7 +19,7 @@
       "label": "clean",
       "type": "shell",
       "command": "dotnet",
-      "args": ["clean", "${workspaceFolder}/Emby.Plugin.CustomPosterFetcher.sln"],
+      "args": ["clean", "${workspaceFolder}/Emby.Plugin.CustomArtFetcher.sln"],
       "problemMatcher": "$msCompile"
     },
     {
@@ -29,7 +29,7 @@
       "command": "dotnet",
       "args": [
         "build",
-        "${workspaceFolder}/Emby.Plugin.CustomPosterFetcher.sln",
+        "${workspaceFolder}/Emby.Plugin.CustomArtFetcher.sln",
         "-c", "Release",
         "-p:EmbyPluginsDir=${input:embyPluginsDir}"
       ],

@@ -143,6 +143,6 @@ png = (b"\x89PNG\r\n\x1a\n"
        + chunk(b"IDAT", zlib.compress(raw, 9))
        + chunk(b"IEND", b""))
 
-with open("src/Emby.Plugin.CustomPosterFetcher/thumb.png", "wb") as f:
+with open("src/Emby.Plugin.CustomArtFetcher/thumb.png", "wb") as f:
     f.write(png)
 print("wrote", len(png), "bytes")

@@ -1,4 +1,4 @@
-namespace Emby.Plugin.CustomPosterFetcher.Providers
+namespace Emby.Plugin.CustomArtFetcher.Providers
 {
     using System;
     using System.Collections.Concurrent;
@@ -10,7 +10,7 @@ namespace Emby.Plugin.CustomPosterFetcher.Providers
     using System.Threading;
     using System.Threading.Tasks;
 
-    using Emby.Plugin.CustomPosterFetcher.Model;
+    using Emby.Plugin.CustomArtFetcher.Model;
 
     using MediaBrowser.Common.Net;
     using MediaBrowser.Controller.Entities;
@@ -24,17 +24,17 @@ namespace Emby.Plugin.CustomPosterFetcher.Providers
     using MediaBrowser.Model.Providers;
 
     /// <summary>
-    /// Offers Emby a poster built from the user's URL template. Emby discovers this by interface —
+    /// Offers Emby images built from the user's URL templates. Emby discovers this by interface —
     /// there is no registration step. Its position relative to the other fetchers is set per library
     /// under Library → Advanced → Image Fetchers.
     /// </summary>
-    public class PosterImageProvider : IRemoteImageProvider
+    public class ArtImageProvider : IRemoteImageProvider
     {
         /// <summary>
         /// Shown in the image fetcher list and stored in each library's configuration, so it must
         /// stay stable across releases.
         /// </summary>
-        public const string ProviderName = "Custom Poster Fetcher";
+        public const string ProviderName = "Custom Art Fetcher";
 
         private static readonly TimeSpan FailureCacheDuration = TimeSpan.FromMinutes(5);
         private static readonly ImageType[] SupportedImages = { ImageType.Primary };
@@ -57,7 +57,7 @@ namespace Emby.Plugin.CustomPosterFetcher.Providers
         private readonly ILogger logger;
         private readonly ImageUrlProbe probe;
 
-        public PosterImageProvider(IHttpClient httpClient, ILogManager logManager)
+        public ArtImageProvider(IHttpClient httpClient, ILogManager logManager)
         {
             this.httpClient = httpClient;
             this.logger = logManager.GetLogger(ProviderName);
@@ -236,7 +236,7 @@ namespace Emby.Plugin.CustomPosterFetcher.Providers
 
         private static PluginOptions GetOptions()
         {
-            var plugin = CustomPosterFetcherPlugin.Instance;
+            var plugin = CustomArtFetcherPlugin.Instance;
             return plugin?.GetPluginOptions();
         }
 
@@ -323,7 +323,7 @@ namespace Emby.Plugin.CustomPosterFetcher.Providers
         /// explains the ranking in full, but only once per library configuration, so during a
         /// library-wide refresh it scrolls out of sight long before the lines someone is actually
         /// reading. Repeating the position on every line keeps the usual cause of "the plugin logs
-        /// that it offered a poster but the poster never changes" visible where the problem is seen.
+        /// that it offered an image but the image never changes" visible where the problem is seen.
         /// </summary>
         private static string DescribeRank(BaseItem item, LibraryOptions libraryOptions)
         {
@@ -357,8 +357,8 @@ namespace Emby.Plugin.CustomPosterFetcher.Providers
 
         /// <summary>
         /// Reports where this plugin sits in the library's image fetcher ranking. Emby asks every
-        /// enabled fetcher for candidates and then saves the poster from the highest-ranked one, so a
-        /// plugin that is offering posters but being ignored is nearly always ranked below TMDb —
+        /// enabled fetcher for candidates and then saves the image from the highest-ranked one, so a
+        /// plugin that is offering images but being ignored is nearly always ranked below TMDb —
         /// which is invisible from this plugin's own log lines. Logged once per distinct
         /// configuration, at Info, because it is the first thing to check when nothing changes.
         /// </summary>
@@ -386,14 +386,14 @@ namespace Emby.Plugin.CustomPosterFetcher.Providers
             {
                 this.logger.Info(
                     "Image fetchers for {0} in this library are at their defaults, so the ranking is Emby's own. "
-                    + "If posters offered here are ignored, set the order under Library → Advanced → Image Fetchers.",
+                    + "If images offered here are ignored, set the order under Library → Advanced → Image Fetchers.",
                     typeName);
             }
             else if (position < 0)
             {
                 this.logger.Info(
                     "Image fetchers for {0}: {1}. \"{2}\" is not in that list, so Emby ranks it last and a "
-                    + "higher fetcher's poster wins. Tick it and drag it to the top under "
+                    + "higher fetcher's image wins. Tick it and drag it to the top under "
                     + "Library → Advanced → Image Fetchers. (A fetcher is listed under the name it had when "
                     + "you configured it, so a renamed plugin has to be re-ticked.)",
                     typeName,
@@ -403,7 +403,7 @@ namespace Emby.Plugin.CustomPosterFetcher.Providers
             else if (position > 0)
             {
                 this.logger.Info(
-                    "Image fetchers for {0}: {1}. \"{2}\" is #{3} of {4}, so the posters it offers are only used "
+                    "Image fetchers for {0}: {1}. \"{2}\" is #{3} of {4}, so the images it offers are only used "
                     + "when every fetcher above it returns none. Drag it to the top under "
                     + "Library → Advanced → Image Fetchers to have it win.",
                     typeName,
@@ -415,7 +415,7 @@ namespace Emby.Plugin.CustomPosterFetcher.Providers
             else
             {
                 this.logger.Info(
-                    "Image fetchers for {0}: {1}. \"{2}\" is first, so its posters win.",
+                    "Image fetchers for {0}: {1}. \"{2}\" is first, so its images win.",
                     typeName,
                     string.Join(", ", ranking),
                     ProviderName);

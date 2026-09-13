@@ -1,4 +1,4 @@
-namespace Emby.Plugin.CustomPosterFetcher.Model
+namespace Emby.Plugin.CustomArtFetcher.Model
 {
     using System;
     using System.Collections.Generic;
@@ -112,7 +112,7 @@ namespace Emby.Plugin.CustomPosterFetcher.Model
             builder.AppendLine("{raw:<token>}  —  the same value without URL-encoding, e.g. {raw:name}");
             builder.Append("Placeholders are case-insensitive. If any placeholder in the URL is empty for an item ")
                    .Append("(for example {tmdb_id} on a movie that has no TMDb id), the item is skipped and its ")
-                   .Append("existing poster is left alone.");
+                   .Append("existing image is left alone.");
 
             return builder.ToString();
         }

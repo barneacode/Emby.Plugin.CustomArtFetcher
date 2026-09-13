@@ -1,4 +1,4 @@
-namespace Emby.Plugin.CustomPosterFetcher.UI
+namespace Emby.Plugin.CustomArtFetcher.UI
 {
     using System.Threading;
     using System.Threading.Tasks;
@@ -15,9 +15,9 @@ namespace Emby.Plugin.CustomPosterFetcher.UI
     /// </summary>
     public class SettingsPageController : IPluginUIPageController
     {
-        private readonly CustomPosterFetcherPlugin plugin;
+        private readonly CustomArtFetcherPlugin plugin;
 
-        public SettingsPageController(CustomPosterFetcherPlugin plugin, PluginPageInfo pageInfo)
+        public SettingsPageController(CustomArtFetcherPlugin plugin, PluginPageInfo pageInfo)
         {
             this.plugin = plugin;
             this.PageInfo = pageInfo;

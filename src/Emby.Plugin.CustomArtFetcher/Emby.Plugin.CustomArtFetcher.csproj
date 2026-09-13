@@ -5,12 +5,12 @@
     <LangVersion>latest</LangVersion>
     <NoWarn>1701;1702;1591</NoWarn>
     <GenerateSerializationAssemblies>Off</GenerateSerializationAssemblies>
-    <RootNamespace>Emby.Plugin.CustomPosterFetcher</RootNamespace>
-    <AssemblyName>Emby.Plugin.CustomPosterFetcher</AssemblyName>
+    <RootNamespace>Emby.Plugin.CustomArtFetcher</RootNamespace>
+    <AssemblyName>Emby.Plugin.CustomArtFetcher</AssemblyName>
     <!-- The last part is the build number, bumped by IncrementBuildNumber on every real build. -->
     <VersionBase>1.1.0</VersionBase>
     <Company>-</Company>
-    <Product>Custom Poster Fetcher</Product>
+    <Product>Custom Art Fetcher</Product>
   </PropertyGroup>
 
   <!--

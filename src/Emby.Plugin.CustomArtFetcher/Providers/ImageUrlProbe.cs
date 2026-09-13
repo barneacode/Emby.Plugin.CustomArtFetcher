@@ -1,4 +1,4 @@
-namespace Emby.Plugin.CustomPosterFetcher.Providers
+namespace Emby.Plugin.CustomArtFetcher.Providers
 {
     using System;
     using System.Diagnostics;

@@ -1,5 +1,5 @@
 {
-  "dotnet.defaultSolution": "Emby.Plugin.CustomPosterFetcher.sln",
+  "dotnet.defaultSolution": "Emby.Plugin.CustomArtFetcher.sln",
 
   // The .NET SDK is installed at /usr/local/share/dotnet and is put on the PATH only by
   // /etc/paths.d/dotnet, which applies to login shells. VS Code launched from Finder or the

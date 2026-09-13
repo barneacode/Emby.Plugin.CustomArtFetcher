@@ -13,4 +13,4 @@ obj/
 # OS
 .DS_Store
 Thumbs.db
-src/Emby.Plugin.CustomPosterFetcher/build-number.txt
+src/Emby.Plugin.CustomArtFetcher/build-number.txt

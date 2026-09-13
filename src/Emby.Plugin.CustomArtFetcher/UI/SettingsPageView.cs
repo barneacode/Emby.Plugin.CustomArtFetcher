@@ -1,10 +1,10 @@
-namespace Emby.Plugin.CustomPosterFetcher.UI
+namespace Emby.Plugin.CustomArtFetcher.UI
 {
     using System;
     using System.Threading;
     using System.Threading.Tasks;
 
-    using Emby.Plugin.CustomPosterFetcher.Model;
+    using Emby.Plugin.CustomArtFetcher.Model;
     using Emby.Web.GenericEdit.Elements;
 
     using MediaBrowser.Model.Dto;
@@ -32,9 +32,9 @@ namespace Emby.Plugin.CustomPosterFetcher.UI
         /// </summary>
         private const int TestTimeoutCeilingSeconds = 15;
 
-        private readonly CustomPosterFetcherPlugin plugin;
+        private readonly CustomArtFetcherPlugin plugin;
 
-        public SettingsPageView(CustomPosterFetcherPlugin plugin)
+        public SettingsPageView(CustomArtFetcherPlugin plugin)
         {
             this.plugin = plugin;
 
@@ -49,7 +49,7 @@ namespace Emby.Plugin.CustomPosterFetcher.UI
             options.ResetTestStatuses();
 
             this.ContentData = options;
-            this.PluginId = CustomPosterFetcherPlugin.PluginId.ToString();
+            this.PluginId = CustomArtFetcherPlugin.PluginId.ToString();
         }
 
         public event EventHandler<GenericEventArgs<IPluginUIView>> UIViewInfoChanged;

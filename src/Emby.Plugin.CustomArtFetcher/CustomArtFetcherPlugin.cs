@@ -1,11 +1,11 @@
-namespace Emby.Plugin.CustomPosterFetcher
+namespace Emby.Plugin.CustomArtFetcher
 {
     using System;
     using System.Collections.Generic;
     using System.IO;
 
-    using Emby.Plugin.CustomPosterFetcher.Model;
-    using Emby.Plugin.CustomPosterFetcher.UI;
+    using Emby.Plugin.CustomArtFetcher.Model;
+    using Emby.Plugin.CustomArtFetcher.UI;
 
     using MediaBrowser.Common.Net;
 
@@ -24,16 +24,16 @@ namespace Emby.Plugin.CustomPosterFetcher
     /// available through the protected GetOptions/SaveOptions it also provides. The base's own page
     /// is left unused: its view answers every button press with null.
     /// </summary>
-    public class CustomPosterFetcherPlugin : BasePluginSimpleUI<PluginOptions>, IHasUIPages, IHasThumbImage
+    public class CustomArtFetcherPlugin : BasePluginSimpleUI<PluginOptions>, IHasUIPages, IHasThumbImage
     {
-        public const string PluginName = "Custom Poster Fetcher";
+        public const string PluginName = "Custom Art Fetcher";
 
         public const string PluginDescription =
-            "Fetches poster images for movies and series from a URL template you configure, "
-            + "filled in from the metadata ids Emby holds for each item.";
+            "Fetches posters, backdrops, thumbs and logos for movies and series from URL templates "
+            + "you configure, filled in from the metadata ids Emby holds for each item.";
 
         /// <summary>Never change this — Emby identifies the plugin (and its stored config) by it.</summary>
-        public static readonly Guid PluginId = new Guid("6E1B4F2C-9B0A-4F6D-9E2B-2C1A7F3D8A54");
+        public static readonly Guid PluginId = new Guid("55CF4BD6-1FB9-4DBD-BAD6-44D67B6AE7D9");
 
         private readonly IServerApplicationHost appHost;
         private readonly SettingsPageController controller;
@@ -41,7 +41,7 @@ namespace Emby.Plugin.CustomPosterFetcher
 
         private UrlTester urlTester;
 
-        public CustomPosterFetcherPlugin(IServerApplicationHost appHost)
+        public CustomArtFetcherPlugin(IServerApplicationHost appHost)
             : base(appHost)
         {
             Instance = this;
@@ -68,7 +68,7 @@ namespace Emby.Plugin.CustomPosterFetcher
         /// The image provider is constructed by Emby's DI container and has no way to reach the
         /// plugin instance, so it reads the options through here.
         /// </summary>
-        public static CustomPosterFetcherPlugin Instance { get; private set; }
+        public static CustomArtFetcherPlugin Instance { get; private set; }
 
         public override Guid Id => PluginId;
 

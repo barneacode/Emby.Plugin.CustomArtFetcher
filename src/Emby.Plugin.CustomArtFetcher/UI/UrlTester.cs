@@ -1,12 +1,12 @@
-namespace Emby.Plugin.CustomPosterFetcher.UI
+namespace Emby.Plugin.CustomArtFetcher.UI
 {
     using System;
     using System.Collections.Generic;
     using System.Threading;
     using System.Threading.Tasks;
 
-    using Emby.Plugin.CustomPosterFetcher.Model;
-    using Emby.Plugin.CustomPosterFetcher.Providers;
+    using Emby.Plugin.CustomArtFetcher.Model;
+    using Emby.Plugin.CustomArtFetcher.Providers;
     using Emby.Web.GenericEdit.Elements;
 
     using MediaBrowser.Common.Net;
