@@ -65,38 +65,23 @@ namespace Emby.Plugin.CustomArtFetcher.UI
                 return;
             }
 
-            var itemTypes = new List<string>();
-            if (options.EnableForMovies)
-            {
-                itemTypes.Add("Movie");
-            }
-
-            if (options.EnableForSeries)
-            {
-                itemTypes.Add("Series");
-            }
-
-            if (itemTypes.Count == 0)
-            {
-                Set(status, ItemStatus.Warning, "Turn on movies or series under Behavior first.");
-                return;
-            }
+            var itemTypes = new[] { "Movie", "Series" };
 
             // Draw at random and skip what the last few clicks already used, so pressing Test
             // repeatedly works through the library instead of asking about one item over and over.
-            var pick = this.PickItem(itemTypes.ToArray(), template, this.GetRecent(type));
+            var pick = this.PickItem(itemTypes, template, this.GetRecent(type));
 
             if (pick.Item == null && pick.Examined == 0)
             {
                 // Nothing left once the recent ones were excluded. Forget them and draw again, so a
                 // small library cycles rather than running out.
                 this.ForgetRecent(type);
-                pick = this.PickItem(itemTypes.ToArray(), template, new long[0]);
+                pick = this.PickItem(itemTypes, template, new long[0]);
             }
 
             if (pick.Examined == 0)
             {
-                Set(status, ItemStatus.Unavailable, "No " + string.Join(" or ", itemTypes.ToArray()).ToLowerInvariant() + " found in the library to test with.");
+                Set(status, ItemStatus.Unavailable, "No " + string.Join(" or ", itemTypes).ToLowerInvariant() + " found in the library to test with.");
                 return;
             }
 

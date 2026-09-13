@@ -47,7 +47,7 @@ namespace Emby.Plugin.CustomArtFetcher.Model
         public StatusItem PosterStatus { get; set; } =
             new StatusItem("Poster URL", "Not tested yet.", ItemStatus.Unknown);
 
-        [DisplayName("Fetch backdrops")]
+        [DisplayName("Fetch Backdrops")]
         public bool EnableBackdrop { get; set; } = false;
 
         [DisplayName("Backdrop URL")]
@@ -77,7 +77,7 @@ namespace Emby.Plugin.CustomArtFetcher.Model
         public StatusItem ThumbStatus { get; set; } =
             new StatusItem("Thumb URL", "Not tested yet.", ItemStatus.Unknown);
 
-        [DisplayName("Fetch logos")]
+        [DisplayName("Fetch Logos")]
         public bool EnableLogo { get; set; } = false;
 
         [DisplayName("Logo URL")]
@@ -105,12 +105,6 @@ namespace Emby.Plugin.CustomArtFetcher.Model
         public SpacerItem Spacer2 { get; set; } = new SpacerItem();
 
         public CaptionItem BehaviorCaption { get; set; } = new CaptionItem("Behavior");
-
-        [DisplayName("Use for movies")]
-        public bool EnableForMovies { get; set; } = true;
-
-        [DisplayName("Use for series")]
-        public bool EnableForSeries { get; set; } = true;
 
         [DisplayName("Check that the image exists first")]
         [Description("Sends a HEAD request before offering an image to Emby, and skips it if the "
@@ -155,19 +149,13 @@ namespace Emby.Plugin.CustomArtFetcher.Model
         {
             base.Validate(context);
 
-            // Each URL is only required once its own toggle is on, so an unfinished URL left behind
-            // a switched-off type never blocks saving.
-            if (!this.EnablePoster && !this.EnableBackdrop && !this.EnableThumb && !this.EnableLogo)
-            {
-                context.AddValidationError(
-                    nameof(this.EnablePoster),
-                    "No image types are switched on, so the plugin would fetch nothing. Switch on at least one.");
-            }
-
-            this.UrlTemplate = ValidateTemplate(context, nameof(this.UrlTemplate), this.UrlTemplate, this.EnablePoster, "poster");
-            this.BackdropUrlTemplate = ValidateTemplate(context, nameof(this.BackdropUrlTemplate), this.BackdropUrlTemplate, this.EnableBackdrop, "backdrop");
-            this.ThumbUrlTemplate = ValidateTemplate(context, nameof(this.ThumbUrlTemplate), this.ThumbUrlTemplate, this.EnableThumb, "thumb");
-            this.LogoUrlTemplate = ValidateTemplate(context, nameof(this.LogoUrlTemplate), this.LogoUrlTemplate, this.EnableLogo, "logo");
+            // A blank URL never blocks saving: the page has to be storable half-finished, and an
+            // image type left switched on with no URL simply fetches nothing (the provider skips
+            // empty templates). Only a URL that has actually been typed is held to the format rules.
+            this.UrlTemplate = ValidateTemplate(context, nameof(this.UrlTemplate), this.UrlTemplate, "poster");
+            this.BackdropUrlTemplate = ValidateTemplate(context, nameof(this.BackdropUrlTemplate), this.BackdropUrlTemplate, "backdrop");
+            this.ThumbUrlTemplate = ValidateTemplate(context, nameof(this.ThumbUrlTemplate), this.ThumbUrlTemplate, "thumb");
+            this.LogoUrlTemplate = ValidateTemplate(context, nameof(this.LogoUrlTemplate), this.LogoUrlTemplate, "logo");
         }
 
         private static void ResetStatus(StatusItem status, string caption)
@@ -178,28 +166,20 @@ namespace Emby.Plugin.CustomArtFetcher.Model
         }
 
         /// <summary>
-        /// Trims one URL template and, when its image type is switched on, holds it to the same
-        /// three rules as the poster URL: present, absolute http/https once the placeholders are
-        /// filled in, and carrying at least one placeholder.
+        /// Trims one URL template and, if anything was typed, checks it is an absolute http/https
+        /// address once the placeholders are filled in. An empty template is left alone.
         /// </summary>
         /// <returns>The trimmed template, to be stored back on the property.</returns>
         private static string ValidateTemplate(
             ValidationContext context,
             string propertyName,
             string template,
-            bool required,
             string label)
         {
             template = (template ?? string.Empty).Trim();
 
-            if (!required)
-            {
-                return template;
-            }
-
             if (template.Length == 0)
             {
-                context.AddValidationError(propertyName, "Please enter a " + label + " URL.");
                 return template;
             }
 
